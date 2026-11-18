@@ -617,6 +617,14 @@ defmodule Acs.LLM do
   # request.
   # OPENAI_MODEL      — override the model name (e.g., gpt-4o-mini, local-model)
   # OPENROUTER_MODEL  — override the model name
+  # MIMO_MODEL        — override the model name (registry default mimo-v2.5 was retired upstream)
+  defp provider_overrides("mimo", :model) do
+    case System.get_env("MIMO_MODEL") do
+      model when model in [nil, ""] -> nil
+      model -> String.trim(model)
+    end
+  end
+
   defp provider_overrides("nim", :model),
     do: System.get_env("NIM_MODEL") || Application.get_env(:steward_acs, :nim_model)
 

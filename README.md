@@ -158,6 +158,7 @@ The file watcher debounces events (1000ms) and excludes `.obsidian/` internal fi
 | `OBSIDIAN_VAULT_PATH` | No | — | Filesystem path to Obsidian vault |
 | `ENABLED_LLM_PROVIDERS` | No | all | Comma-separated whitelist (e.g. `tokenrouter,nim`) |
 | `NIM_API_KEY` | No | — | NVIDIA NIM API key for LLM evaluation |
+| `MIMO_MODEL` | No | `mimo-v2.5` (retired upstream; set this) | Mimo model override (e.g. `mimo-v2.6-flash`) |
 | `NIM_MODEL` | No | `meta/llama-3.3-70b-instruct` | NIM model override (e.g. `nvidia/nemotron-3.5-lightning-30b-a3b`) |
 | `NIM_BASE_URL` | No | `https://integrate.api.nvidia.com/v1` | NIM API base URL override |
 | `TOKENROUTER_API_KEY` | No | — | TokenRouter API key for LLM evaluation |
@@ -199,7 +200,7 @@ Memory auditing and semantic search need an LLM provider. Set at least one of th
 | `OPENAI_API_KEY` | OpenAI (also set `OPENAI_BASE_URL` / `OPENAI_MODEL` for custom endpoints) |
 | `ANTHROPIC_API_KEY` | Anthropic Messages API |
 
-You can restrict which providers are used via `ENABLED_LLM_PROVIDERS` (comma-separated, e.g. `mimo,nim`). By default all enabled providers with valid API keys are tried in priority order, with Mimo first. Mimo uses `https://token-plan-sgp.xiaomimimo.com/v1` and defaults to `mimo-v2.5`; TokenRouter uses `https://api.tokenrouter.com/v1` and defaults to `z-ai/glm-5.3-free`. Anthropic defaults to `claude-haiku-4-5-20251001`; local `.env` and production Infisical use the same variable names.
+You can restrict which providers are used via `ENABLED_LLM_PROVIDERS` (comma-separated, e.g. `mimo,nim`). By default all enabled providers with valid API keys are tried in priority order, with Mimo first. Mimo uses `https://token-plan-sgp.xiaomimimo.com/v1` and defaults to `mimo-v2.5`, which Xiaomi retired on 2026-10-21 — set `MIMO_MODEL` (e.g. `mimo-v2.6-flash`); TokenRouter uses `https://api.tokenrouter.com/v1` and defaults to `z-ai/glm-5.3-free`. Anthropic defaults to `claude-haiku-4-5-20251001`; local `.env` and production Infisical use the same variable names.
 
 ### MCP Tool Definitions
 

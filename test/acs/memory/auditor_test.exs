@@ -154,6 +154,41 @@ defmodule Acs.Memory.AuditorTest do
     end
   end
 
+  describe "fetch_auditable_memories" do
+    test "reaches memories queued behind a full page of settled ones" do
+      old = DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.truncate(:second)
+      uniq = System.unique_integer([:positive])
+
+      for i <- 1..205 do
+        Repo.insert!(%Schema{
+          id: "starve_settled_#{uniq}_#{i}",
+          kind: "learning",
+          status: "proposed",
+          title: "Settled #{i}",
+          content: "Already settled content #{i}.",
+          scope_path: "test_app/starve",
+          auditor_flags: Jason.encode!(%{"audit_verdict" => "approve"}),
+          created_at: DateTime.add(old, -i, :second)
+        })
+      end
+
+      Repo.insert!(%Schema{
+        id: "starve_fresh_#{uniq}",
+        kind: "learning",
+        status: "proposed",
+        title: "Fresh",
+        content: "Fresh content behind the settled rows.",
+        scope_path: "test_app/starve",
+        created_at: old
+      })
+
+      {memories, skipped} = Auditor.fetch_auditable_memories()
+
+      assert "starve_fresh_#{uniq}" in Enum.map(memories, & &1.id)
+      assert skipped[:settled_verdict] >= 205
+    end
+  end
+
   # ---------------------------------------------------------------------------
   # Integration: Memory Status Update Tests
   # ---------------------------------------------------------------------------

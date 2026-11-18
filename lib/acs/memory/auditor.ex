@@ -36,6 +36,8 @@ defmodule Acs.Memory.Auditor do
 
   # Cooling-off period: 30 seconds
   @cooling_off_seconds 30
+  @fetch_page_size 200
+  @audit_batch_size 100
 
   # Max concurrent LLM evaluations via Task.async_stream.
   # Provider rate limiters (NIM: 40/min, Mimo: 100/min) are the binding constraint,
@@ -202,29 +204,41 @@ defmodule Acs.Memory.Auditor do
   # Multi-tenant: GenServer has no request org, so scan all orgs (VaultSweeper pattern).
   defp auditable_kinds, do: Acs.Memory.auditable_kinds()
 
-  defp fetch_auditable_memories do
+  @doc false
+  def fetch_auditable_memories do
     cooling_off_threshold = DateTime.utc_now() |> DateTime.add(-@cooling_off_seconds, :second)
+    collect_auditable(cooling_off_threshold, 0, [], %{})
+  end
 
-    memories =
+  # Pages through candidate rows oldest-first. Settled/parked rows stay `proposed`
+  # forever, so a single fixed-size page filled up with them and starved every
+  # newer memory; keep paging until a batch of auditable rows is found.
+  defp collect_auditable(threshold, offset, acc, skipped) do
+    page =
       from(m in Schema,
         where: m.status == "proposed",
         where: m.kind in ^auditable_kinds(),
         where: is_nil(m.parse_error) or m.parse_error == "",
-        where: m.created_at < ^cooling_off_threshold,
-        order_by: [asc: m.created_at],
-        limit: 200
+        where: m.created_at < ^threshold,
+        order_by: [asc: m.created_at, asc: m.id],
+        limit: ^@fetch_page_size,
+        offset: ^offset
       )
       |> Repo.all()
 
-    {memories, skipped} =
-      Enum.reduce(memories, {[], %{}}, fn memory, {auditable, skipped} ->
+    {acc, skipped} =
+      Enum.reduce(page, {acc, skipped}, fn memory, {acc, skipped} ->
         case audit_skip_reason(memory) do
-          nil -> {[memory | auditable], skipped}
-          reason -> {auditable, Map.update(skipped, reason, 1, &(&1 + 1))}
+          nil -> {[memory | acc], skipped}
+          reason -> {acc, Map.update(skipped, reason, 1, &(&1 + 1))}
         end
       end)
 
-    {Enum.reverse(memories), skipped}
+    if length(page) < @fetch_page_size or length(acc) >= @audit_batch_size do
+      {Enum.reverse(acc), skipped}
+    else
+      collect_auditable(threshold, offset + @fetch_page_size, acc, skipped)
+    end
   end
 
   # Proposed rows with a settled verdict are already handled and must not be
